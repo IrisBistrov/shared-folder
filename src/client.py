@@ -51,12 +51,13 @@ async def verify_directory_contents(directory_dict, dir_path, reader, writer):
         else:
             logger.info(f"File verified: {actual_file_path}")
 
+    paths = [Path(file_path) for file_path in directory_dict.keys()]
     for root, dirs, files in os.walk(dir_path):
-        for file in files:
-            relative_path = os.path.relpath(os.path.join(root, file), dir_path)
-            if relative_path not in directory_dict:
-                logger.info(f"File exists locally but not in remote: {relative_path}")
-                Path(relative_path).unlink()
+        for curr_file in files:
+            relative_path = os.path.relpath(os.path.join(root, curr_file), dir_path)
+            same_paths = [path for path in paths if path == Path(relative_path)]
+            if len(same_paths) == 0:
+                logger.warning(f"File exists locally but not in remote: {relative_path}")
 
 
 async def handle_sync(reader, writer):
