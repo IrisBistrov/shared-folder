@@ -1,26 +1,24 @@
 import asyncio
 
 from logger_singleton import SingletonLogger
+from directory_utils import directory_to_json
+from protocol import ServerSyncMessage, MESSAGE_TYPE_LENGTH, MessageType
+from server_handlers import handle_user_edit, handle_user_request
 
 logger = SingletonLogger.get_logger()
 
+MESSAGE_TYPE_TO_HANDLER = {
+    MessageType.USER_EDIT.value: handle_user_edit,
+    MessageType.USER_REQUEST.value: handle_user_request
+}
+
 
 async def handle_client(reader, writer):
+    writer.write(ServerSyncMessage(directory_to_json(".").encode()).pack())
+
     while True:
-        data = await reader.read(100)  # Read up to 100 bytes
-        if not data:
-            break
-        message = data.decode()
-        addr = writer.get_extra_info('peername')
-        logger.info(f"Received {message} from {addr}")
-
-        # Echo back the received message (you can modify this part as needed)
-        writer.write(data)
-        await writer.drain()
-
-    # Close the connection
-    writer.close()
-    await writer.wait_closed()
+        message_type = await reader.read(MESSAGE_TYPE_LENGTH)
+        MESSAGE_TYPE_TO_HANDLER[message_type]()
 
 
 async def main(host, port):
