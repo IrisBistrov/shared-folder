@@ -7,6 +7,7 @@ logger = SingletonLogger.get_logger()
 
 MESSAGE_TYPE_LENGTH = 1
 MESSAGE_LENGTH_FIELD_LENGTH = 2
+FILE_NAME_LENGTH_FIELD_LENGTH = 2
 
 
 class MessageType(Enum):
@@ -33,8 +34,9 @@ class Message:
 
 
 class UserEditMessage(Message):
+    EDIT_TYPE_LENGTH = 1
     CODE = MessageType.USER_EDIT.value
-    DEFAULT_FORMAT = ">BBHHss"
+    DEFAULT_FORMAT = ">BBHsHs"
     DELETE_FORMAT = ">BBHs"
 
     def __init__(self, edit_type, file_name, content=None):
@@ -45,14 +47,15 @@ class UserEditMessage(Message):
 
     def pack(self):
         if self.edit_type is UserEditTypes.DELETE:
-            return struct.pack(f">BBH{len(self.file_name)}s", self.CODE, self.edit_type, len(self.file_name), self.file_name)
+            return struct.pack(f">BBH{len(self.file_name)}s", self.CODE, self.edit_type, len(self.file_name),
+                               self.file_name)
 
         return struct.pack(f">BBHH{len(self.file_name)}s{len(self.content)}s",
                            self.CODE,
                            self.edit_type,
                            len(self.file_name),
-                           len(self.content),
                            self.file_name,
+                           len(self.content),
                            self.content)
 
 
@@ -75,7 +78,11 @@ class UserRequestMessage(Message):
         self.md5sum = md5sum
 
     def pack(self):
-        return struct.pack(f">BH{len(self.md5sum)}s{len(self.file_path)}s", self.CODE, len(self.file_path), self.md5sum, self.file_path)
+        return struct.pack(f">BH{len(self.file_path)}s{len(self.md5sum)}s",
+                           self.CODE,
+                           len(self.file_path),
+                           self.file_path.encode(),
+                           self.md5sum.encode())
 
 
 class UserRequestResponse(Message):
@@ -87,13 +94,13 @@ class UserRequestResponse(Message):
         self.content = content
 
     def pack(self):
-        return struct.pack(f">BHH{len(self.md5sum)}s{len(self.file_path)}s{len(self.content)}s",
+        return struct.pack(f">BH{len(self.file_path)}sH{len(self.content)}s{len(self.md5sum)}s",
                            self.CODE,
                            len(self.file_path),
+                           self.file_path.encode(),
                            len(self.content),
-                           self.md5sum,
-                           self.file_path,
-                           self.content)
+                           self.content.encode(),
+                           self.md5sum.encode())
 
 
 class ServerSyncMessage(Message):
@@ -103,4 +110,7 @@ class ServerSyncMessage(Message):
         self.data = data
 
     def pack(self):
-        return struct.pack(f">BH{len(self.data)}s", self.CODE, len(self.data), self.data)
+        return struct.pack(f">BH{len(self.data)}s",
+                           self.CODE,
+                           len(self.data),
+                           self.data)
