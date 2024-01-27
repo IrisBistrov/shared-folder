@@ -9,10 +9,11 @@ from logger_singleton import SingletonLogger
 from protocol import MESSAGE_TYPE_LENGTH, MESSAGE_LENGTH_FIELD_LENGTH, MessageType, UserRequestMessage
 from directory_utils import calculate_md5
 from general_utils import get_directory_path, get_string, get_local_file_path, exception_handler
+from folder_monitor import async_main
 
 logger = SingletonLogger.get_logger()
 
-global shared_dir_path
+shared_dir_path = ""
 
 
 async def handle_missing_file(missing_file_path, missing_hash, reader, writer):
@@ -93,10 +94,15 @@ async def shared_folder_client(host, port):
     await writer.wait_closed()
 
 
-if __name__ == '__main__':
+async def main():
     loop = asyncio.get_event_loop()
     loop.set_exception_handler(exception_handler)
+
+    global shared_dir_path
     shared_dir_path = get_directory_path()
     logger.info(f"The path that we will sync with the shared folder is {shared_dir_path}")
 
-    asyncio.run(shared_folder_client('localhost', 8080), debug=True)
+    await asyncio.gather(shared_folder_client('localhost', 8080), async_main())
+
+
+asyncio.run(main(), debug=True)
