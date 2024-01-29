@@ -71,4 +71,3 @@ async def handle_user_request(reader, writer, folder_path):
     assert expected_md5sum == md5sum.encode()
     writer.write(UserRequestResponse(os.path.relpath(full_path.decode(), folder_path), md5sum, content).pack())
     await writer.drain()
-
