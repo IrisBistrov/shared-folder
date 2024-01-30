@@ -29,12 +29,14 @@ async def get_string(reader):
 
 async def get_local_file_path(reader, folder_path: bytes):
     relative_path = await get_string(reader)
+    logger.info(f"relative path is {relative_path}")
+    logger.info(f"full path is {os.path.join(folder_path, relative_path)}")
     return os.path.join(folder_path, relative_path)
 
 
 def exception_handler(loop, context):
     exception = context.get("exception")
     if exception:
-        logger.error(f"Caught exception: {exception}")
+        logger.error(exception)
     else:
         logger.error(f"Caught exception: {context['message']}")

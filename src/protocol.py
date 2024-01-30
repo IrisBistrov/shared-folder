@@ -1,5 +1,6 @@
 import struct
 from enum import Enum
+from operator import xor
 
 from logger_singleton import SingletonLogger
 
@@ -30,7 +31,8 @@ class StatusTypes(Enum):
 
 
 class Message:
-    pass
+    def pack(self):
+        raise NotImplemented
 
 
 class UserEditMessage(Message):
@@ -39,20 +41,21 @@ class UserEditMessage(Message):
     DEFAULT_FORMAT = ">BBHsHs"
     DELETE_FORMAT = ">BBHs"
 
-    def __init__(self, edit_type, file_name, content=None):
-        assert edit_type in MessageType
+    def __init__(self, edit_type: UserEditTypes, file_name: bytes, content: bytes = None):
+        logger.info(f"edit type is {edit_type.name} and content is {content}")
+        assert xor(edit_type == UserEditTypes.MODIFY, content is None)
         self.edit_type = edit_type
         self.file_name = file_name
         self.content = content
 
     def pack(self):
-        if self.edit_type is UserEditTypes.DELETE:
-            return struct.pack(f">BBH{len(self.file_name)}s", self.CODE, self.edit_type, len(self.file_name),
+        if self.edit_type.value is not UserEditTypes.MODIFY.value:
+            return struct.pack(f">BBH{len(self.file_name)}s", self.CODE, self.edit_type.value, len(self.file_name),
                                self.file_name)
 
-        return struct.pack(f">BBHH{len(self.file_name)}s{len(self.content)}s",
+        return struct.pack(f">BBH{len(self.file_name)}sH{len(self.content)}s",
                            self.CODE,
-                           self.edit_type,
+                           self.edit_type.value,
                            len(self.file_name),
                            self.file_name,
                            len(self.content),
@@ -62,18 +65,17 @@ class UserEditMessage(Message):
 class UserEditResponse:
     CODE = MessageType.USER_EDIT_RESPONSE.value
 
-    def __init__(self, status):
-        assert status in StatusTypes
+    def __init__(self, status: StatusTypes):
         self.status = status
 
     def pack(self):
-        return struct.pack(">BB", self.CODE, self.status)
+        return struct.pack(">BB", self.CODE, self.status.value)
 
 
 class UserRequestMessage(Message):
     CODE = MessageType.USER_REQUEST.value
 
-    def __init__(self, file_path, md5sum):
+    def __init__(self, file_path: str, md5sum: str):
         self.file_path = file_path
         self.md5sum = md5sum
 
@@ -88,7 +90,7 @@ class UserRequestMessage(Message):
 class UserRequestResponse(Message):
     CODE = MessageType.SERVER_FILE.value
 
-    def __init__(self, file_path, md5sum, content):
+    def __init__(self, file_path: str, md5sum: str, content: str):
         self.file_path = file_path
         self.md5sum = md5sum
         self.content = content
@@ -106,7 +108,7 @@ class UserRequestResponse(Message):
 class ServerSyncMessage(Message):
     CODE = MessageType.SERVER_SYNC.value
 
-    def __init__(self, data):
+    def __init__(self, data: bytes):
         self.data = data
 
     def pack(self):
