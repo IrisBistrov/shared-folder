@@ -1,6 +1,6 @@
 import asyncio
 import struct
-from asyncio import Lock, wait_for, StreamReader, StreamWriter
+from asyncio import wait_for, StreamReader, StreamWriter
 
 from logger_singleton import SingletonLogger
 from directory_utils import directory_to_json
@@ -21,7 +21,6 @@ class SharedFolderServer:
     async def broadcast(self, message: Message):
         logger.info(f"clients are {self.clients}")
         for client in self.clients:
-            logger.info(f"going to write {message.pack()}")
             client.write(message.pack())
             await client.drain()
 
@@ -30,6 +29,7 @@ class SharedFolderServer:
         match message:
             case MessageType.USER_EDIT:
                 await handle_user_edit(reader, self.shared_dir_path)
+                await self.broadcast(ServerSyncMessage(directory_to_json(self.shared_dir_path).encode()))
             case MessageType.USER_REQUEST:
                 await handle_user_request(reader, writer, self.shared_dir_path)
             case _:
@@ -52,8 +52,6 @@ class SharedFolderServer:
                 logger.info(f"received message of type: {message_type.name}")
                 await self.handle_message(MessageType(message_type), reader, writer)
 
-                if message_type == MessageType.USER_EDIT:
-                    await self.broadcast(ServerSyncMessage(directory_to_json(self.shared_dir_path).encode()))
         finally:
             logger.info("client disconnected")
             writer.close()

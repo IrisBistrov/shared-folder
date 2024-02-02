@@ -45,7 +45,6 @@ class SharedFolderClient:
         logger.info(f"add {missing_file_path}: {missing_hash} to file requests")
         self.file_requests[os.path.join(self.shared_dir_path, missing_file_path).encode()] = missing_hash.encode()
 
-        logger.info(f"file missing: {missing_file_path} with hash {missing_hash}")
         self.writer.write(UserRequestMessage(missing_file_path, missing_hash).pack())
         await self.writer.drain()
 
@@ -56,7 +55,7 @@ class SharedFolderClient:
         md5sum = await self.reader.readexactly(32)
 
         if missing_file_path not in self.file_requests.keys():
-            logger.warning(f"{missing_file_path} not in file requests {self.file_requests}")
+            logger.warning(f"{missing_file_path} not in file requests {self.file_requests.keys()}")
             return
 
         if calculate_md5sum(content).encode() != md5sum:
@@ -64,6 +63,7 @@ class SharedFolderClient:
             return
 
         self.file_requests.pop(missing_file_path)
+        logger.info(f"got the content of {missing_file_path}")
         with self.disable_observer():
             os.makedirs(os.path.dirname(missing_file_path), exist_ok=True)
             with open(os.path.join(self.shared_dir_path.encode(), missing_file_path), "wb") as f:
