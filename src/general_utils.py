@@ -1,6 +1,7 @@
 import argparse
 import os
 import struct
+import traceback
 
 from protocol import FILE_NAME_LENGTH_FIELD_LENGTH
 from logger_singleton import SingletonLogger
@@ -35,8 +36,10 @@ async def get_local_file_path(reader, folder_path: bytes):
 
 
 def exception_handler(loop, context):
-    exception = context.get("exception")
+    # Retrieve the exception object
+    exception = context.get('exception')
+
     if exception:
-        logger.error(exception)
+        logger.exception(exception)
     else:
-        logger.error(f"Caught exception: {context['message']}")
+        print(context["message"])

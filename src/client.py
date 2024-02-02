@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import json
 import os
 import struct
@@ -6,9 +7,9 @@ from pathlib import Path
 
 from watchdog.observers import Observer
 
-from directory_utils import calculate_md5
+from directory_utils import calculate_file_md5, calculate_md5sum
 from folder_monitor import MyHandler
-from general_utils import get_directory_path, get_string, get_local_file_path, exception_handler
+from general_utils import get_directory_path, get_string, get_local_file_path
 from logger_singleton import SingletonLogger
 from protocol import MESSAGE_TYPE_LENGTH, MESSAGE_LENGTH_FIELD_LENGTH, MessageType, UserRequestMessage
 
@@ -26,43 +27,74 @@ class SharedFolderClient:
         self.event_handler = None
         self.reader = None
         self.writer = None
+        self.file_requests = {}
+
+    @contextlib.contextmanager
+    def disable_observer(self):
+        if self.observer:
+            self.observer.stop()
+            self.observer.join()
+
+        yield
+
+        if self.observer:
+            my_loop = asyncio.get_running_loop()
+            self.start_new_observer(my_loop)
 
     async def handle_missing_file(self, missing_file_path: str, missing_hash: str):
+        logger.info(f"add {missing_file_path}: {missing_hash} to file requests")
+        self.file_requests[os.path.join(self.shared_dir_path, missing_file_path).encode()] = missing_hash.encode()
+
         logger.info(f"file missing: {missing_file_path} with hash {missing_hash}")
         self.writer.write(UserRequestMessage(missing_file_path, missing_hash).pack())
         await self.writer.drain()
-        data = await self.reader.readexactly(MESSAGE_TYPE_LENGTH)
-        message_type = struct.unpack(">B", data)[0]
-        assert message_type is MessageType.SERVER_FILE.value
 
-        file_path = await get_local_file_path(self.reader, self.shared_dir_path.encode())
+    async def handle_server_file(self):
+        missing_file_path = await get_local_file_path(self.reader, self.shared_dir_path.encode())
+
         content = await get_string(self.reader)
         md5sum = await self.reader.readexactly(32)
 
-        assert md5sum == missing_hash.encode()
-        os.makedirs(os.path.dirname(file_path), exist_ok=True)
-        with open(os.path.join(self.shared_dir_path, missing_file_path), "wb") as f:
-            f.write(content)
+        if missing_file_path not in self.file_requests.keys():
+            logger.warning(f"{missing_file_path} not in file requests {self.file_requests}")
+            return
+
+        if calculate_md5sum(content).encode() != md5sum:
+            logger.info("received outdated version, wait for another message")
+            return
+
+        self.file_requests.pop(missing_file_path)
+        with self.disable_observer():
+            os.makedirs(os.path.dirname(missing_file_path), exist_ok=True)
+            with open(os.path.join(self.shared_dir_path.encode(), missing_file_path), "wb") as f:
+                f.write(content)
 
     async def handle_modified_file(self, actual_file_path: str, expected_md5: str):
-        logger.info(f"MD5 mismatch for {actual_file_path}: Expected {expected_md5}, got {actual_md5}")
-        os.unlink(actual_file_path)
+        logger.info(f"MD5 mismatch for {actual_file_path}: Expected {expected_md5}")
         await self.handle_missing_file(actual_file_path, expected_md5)
 
-    async def verify_directory_contents(self, directory_dict: dict):
+        with self.disable_observer():
+            os.unlink(os.path.join(self.shared_dir_path, actual_file_path))
+
+    async def verify_remote_files(self, directory_dict: dict[str: str]):
+        logger.info("verifying that all remote files are equal to local")
+
         for file_path, expected_md5 in directory_dict.items():
             actual_file_path = os.path.join(self.shared_dir_path, file_path)
+            logger.info(f"verifying {actual_file_path}")
 
             if not os.path.exists(actual_file_path):
-                relative_path = os.path.relpath(actual_file_path, self.shared_dir_path)
-                await self.handle_missing_file(relative_path, expected_md5)
+                await self.handle_missing_file(os.path.relpath(actual_file_path, self.shared_dir_path), expected_md5)
                 continue
 
-            actual_md5 = calculate_md5(actual_file_path)
+            actual_md5 = calculate_file_md5(actual_file_path)
             if actual_md5 != expected_md5:
-                await self.handle_modified_file(actual_file_path, expected_md5)
+                await self.handle_modified_file(os.path.relpath(actual_file_path, self.shared_dir_path), expected_md5)
             else:
                 logger.info(f"file verified: {actual_file_path}")
+
+    async def verify_local_files(self, directory_dict: dict[str: str]):
+        logger.info("verifying no redundant local files")
 
         paths = [Path(file_path) for file_path in directory_dict.keys()]
         for root, dirs, files in os.walk(self.shared_dir_path):
@@ -72,7 +104,14 @@ class SharedFolderClient:
                 same_paths = [path for path in paths if path == Path(relative_path)]
                 if len(same_paths) == 0:
                     logger.info(f"File exists locally but not in remote: {relative_path}")
-                    os.unlink(full_path)
+                    with self.disable_observer():
+                        os.unlink(full_path)
+
+    async def verify_directory_contents(self, directory_dict: dict[str: str]):
+        await asyncio.gather(
+            self.verify_local_files(directory_dict),
+            self.verify_remote_files(directory_dict)
+        )
 
     async def handle_sync(self):
         logger.info("handle server sync message")
@@ -90,17 +129,13 @@ class SharedFolderClient:
                 return
 
             message_type = struct.unpack(">B", data)[0]
-            logger.info(f'Received message of type: {message_type}')
-
-            if message_type != MessageType.SERVER_SYNC.value:
-                logger.error(f"unrecognizable message code {message_type}")
-                return
-
-            if self.observer:
-                logger.info("stop observer")
-                self.observer.stop()
-
-            await self.handle_sync()
+            match message_type:
+                case MessageType.SERVER_SYNC.value:
+                    await self.handle_sync()
+                case MessageType.SERVER_FILE.value:
+                    await self.handle_server_file()
+                case _:
+                    logger.error(f"unrecognizable message code {message_type}")
 
     def start_new_observer(self, my_loop):
         logger.info("start new observer")
@@ -116,19 +151,19 @@ class SharedFolderClient:
         self.start_new_observer(my_loop)
 
         while True:
-            if not self.observer.is_alive():
-                self.start_new_observer(my_loop)
+            client_task = asyncio.create_task(self.client_flow())
+            await client_task
+            if client_task.exception():
+                logger.error(client_task.exception())
+                if self.observer.is_alive:
+                    self.observer.stop()
+                    self.observer.join()
+                break
+            await asyncio.sleep(0.1)
 
-            await self.client_flow()
-            await asyncio.sleep(1)
-
-
-loop = asyncio.get_event_loop()
-loop.set_debug(True)
-loop.set_exception_handler(exception_handler)
 
 # global shared_dir_path
 shared_dir_path = get_directory_path()
 logger.info(f"The path that we will sync with the shared folder is {shared_dir_path}")
 
-asyncio.run(SharedFolderClient(shared_dir_path, "localhost", 8080).client())
+asyncio.run(SharedFolderClient(shared_dir_path, "localhost", 8080).client(), debug=True)
