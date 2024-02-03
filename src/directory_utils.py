@@ -1,17 +1,10 @@
 import os
-import hashlib
 import json
 
 from logger_singleton import SingletonLogger
+from general_utils import calculate_md5sum
 
 logger = SingletonLogger.get_logger()
-
-
-# TODO: move to general utils
-def calculate_md5sum(data):
-    hasher = hashlib.md5()
-    hasher.update(data)
-    return hasher.hexdigest()
 
 
 def calculate_file_md5(file_path):

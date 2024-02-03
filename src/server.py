@@ -19,7 +19,7 @@ class SharedFolderServer:
         self.clients = []  # List to keep track of connected clients
 
     async def broadcast(self, message: Message):
-        logger.info(f"clients are {self.clients}")
+        logger.debug(f"clients are {self.clients}")
         for client in self.clients:
             client.write(message.pack())
             await client.drain()
@@ -49,8 +49,8 @@ class SharedFolderServer:
                 except asyncio.TimeoutError:
                     continue
                 message_type = MessageType(struct.unpack(">B", data)[0])
-                logger.info(f"received message of type: {message_type.name}")
-                await self.handle_message(MessageType(message_type), reader, writer)
+                logger.debug(f"received message of type: {message_type.name}")
+                await self.handle_message(message_type, reader, writer)
 
         finally:
             logger.info("client disconnected")

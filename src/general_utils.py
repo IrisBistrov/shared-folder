@@ -1,12 +1,18 @@
 import argparse
+import hashlib
 import os
 import struct
-import traceback
 
 from protocol import FILE_NAME_LENGTH_FIELD_LENGTH
 from logger_singleton import SingletonLogger
 
 logger = SingletonLogger.get_logger()
+
+
+def calculate_md5sum(data):
+    hasher = hashlib.md5()
+    hasher.update(data)
+    return hasher.hexdigest()
 
 
 def get_directory_path():
@@ -23,7 +29,7 @@ async def get_string(reader):
     data = await reader.readexactly(FILE_NAME_LENGTH_FIELD_LENGTH)
     length = struct.unpack(">H", data)[0]
 
-    logger.info(f"try to read a string of length: {length}")
+    logger.debug(f"try to read a string of length: {length}")
     received_str = await reader.readexactly(length)
     return received_str
 

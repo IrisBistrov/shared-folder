@@ -7,9 +7,9 @@ from pathlib import Path
 
 from watchdog.observers import Observer
 
-from directory_utils import calculate_file_md5, calculate_md5sum
+from directory_utils import calculate_file_md5
 from folder_monitor import MyHandler
-from general_utils import get_directory_path, get_string, get_local_file_path
+from general_utils import get_directory_path, get_string, get_local_file_path, calculate_md5sum
 from logger_singleton import SingletonLogger
 from protocol import MESSAGE_TYPE_LENGTH, MESSAGE_LENGTH_FIELD_LENGTH, MessageType, UserRequestMessage
 
@@ -28,6 +28,7 @@ class SharedFolderClient:
         self.reader = None
         self.writer = None
         self.file_requests = {}
+        self.last_sync_hash = None
 
     @contextlib.contextmanager
     def disable_observer(self):
@@ -42,9 +43,8 @@ class SharedFolderClient:
             self.start_new_observer(my_loop)
 
     async def handle_missing_file(self, missing_file_path: str, missing_hash: str):
-        logger.info(f"add {missing_file_path}: {missing_hash} to file requests")
+        logger.info(f"add {missing_file_path.encode()}: {missing_hash.encode()} to file requests")
         self.file_requests[os.path.join(self.shared_dir_path, missing_file_path).encode()] = missing_hash.encode()
-
         self.writer.write(UserRequestMessage(missing_file_path, missing_hash).pack())
         await self.writer.drain()
 
@@ -71,14 +71,13 @@ class SharedFolderClient:
 
     async def handle_modified_file(self, actual_file_path: str, expected_md5: str):
         logger.info(f"MD5 mismatch for {actual_file_path}: Expected {expected_md5}")
-        await self.handle_missing_file(actual_file_path, expected_md5)
-
         with self.disable_observer():
             os.unlink(os.path.join(self.shared_dir_path, actual_file_path))
 
-    async def verify_remote_files(self, directory_dict: dict[str: str]):
-        logger.info("verifying that all remote files are equal to local")
+        await self.handle_missing_file(actual_file_path, expected_md5)
 
+    async def verify_remote_files(self, directory_dict: dict[str: str]):
+        logger.debug("verifying that all remote files are equal to local")
         for file_path, expected_md5 in directory_dict.items():
             actual_file_path = os.path.join(self.shared_dir_path, file_path)
             logger.info(f"verifying {actual_file_path}")
@@ -90,12 +89,12 @@ class SharedFolderClient:
             actual_md5 = calculate_file_md5(actual_file_path)
             if actual_md5 != expected_md5:
                 await self.handle_modified_file(os.path.relpath(actual_file_path, self.shared_dir_path), expected_md5)
-            else:
-                logger.info(f"file verified: {actual_file_path}")
+                continue
+
+            logger.info(f"file verified: {actual_file_path}")
 
     async def verify_local_files(self, directory_dict: dict[str: str]):
-        logger.info("verifying no redundant local files")
-
+        logger.debug("verifying no redundant local files")
         paths = [Path(file_path) for file_path in directory_dict.keys()]
         for root, dirs, files in os.walk(self.shared_dir_path):
             for curr_file in files:
@@ -117,8 +116,14 @@ class SharedFolderClient:
         logger.info("handle server sync message")
         data = await self.reader.readexactly(MESSAGE_LENGTH_FIELD_LENGTH)
         data = await self.reader.readexactly(struct.unpack(">H", data)[0])
+
+        curr_hash = calculate_md5sum(data)
+        if self.last_sync_hash == curr_hash:
+            return
+
+        self.last_sync_hash = curr_hash
         dir_dict = json.loads(data.decode())
-        logger.info(f"received the dir dict: {dir_dict}")
+        logger.debug(f"received the dir dict: {dir_dict}")
         await self.verify_directory_contents(dir_dict)
 
     async def client_flow(self):
@@ -138,7 +143,7 @@ class SharedFolderClient:
                     logger.error(f"unrecognizable message code {message_type}")
 
     def start_new_observer(self, my_loop):
-        logger.info("start new observer")
+        logger.debug("start new observer")
         self.observer = Observer()
         self.event_handler = MyHandler(self.reader, self.writer, self.shared_dir_path, self.lock, my_loop)
         self.observer.schedule(self.event_handler, self.shared_dir_path, recursive=True)
