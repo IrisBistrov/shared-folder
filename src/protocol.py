@@ -38,28 +38,38 @@ class Message:
 class UserEditMessage(Message):
     EDIT_TYPE_LENGTH = 1
     CODE = MessageType.USER_EDIT.value
-    DEFAULT_FORMAT = ">BBHsHs"
-    DELETE_FORMAT = ">BBHs"
 
-    def __init__(self, edit_type: UserEditTypes, file_name: bytes, content: bytes = None):
+    def __init__(self, edit_type: UserEditTypes, file_name: bytes, content: bytes = None, is_dir=None):
         logger.info(f"edit type is {edit_type.name} and content is {content}")
         assert xor(edit_type == UserEditTypes.MODIFY, content is None)
-        self.edit_type = edit_type
+        self.edit_type = UserEditTypes(edit_type)
         self.file_name = file_name
         self.content = content
+        self.is_dir = is_dir
 
-    def pack(self):
-        if self.edit_type.value is not UserEditTypes.MODIFY.value:
-            return struct.pack(f">BBH{len(self.file_name)}s", self.CODE, self.edit_type.value, len(self.file_name),
-                               self.file_name)
-
-        return struct.pack(f">BBH{len(self.file_name)}sH{len(self.content)}s",
-                           self.CODE,
-                           self.edit_type.value,
-                           len(self.file_name),
-                           self.file_name,
-                           len(self.content),
-                           self.content)
+    def pack(self) -> bytes:
+        match self.edit_type:
+            case UserEditTypes.DELETE:
+                return struct.pack(f">BBH{len(self.file_name)}s",
+                                   self.CODE, self.edit_type.value,
+                                   len(self.file_name),
+                                   self.file_name)
+            case UserEditTypes.MODIFY:
+                return struct.pack(f">BBH{len(self.file_name)}sH{len(self.content)}s",
+                                   self.CODE,
+                                   self.edit_type.value,
+                                   len(self.file_name),
+                                   self.file_name,
+                                   len(self.content),
+                                   self.content)
+            case UserEditTypes.CREATE:
+                return struct.pack(f">BBH{len(self.file_name)}sB",
+                                   self.CODE, self.edit_type.value,
+                                   len(self.file_name),
+                                   self.file_name,
+                                   self.is_dir)
+            case _:
+                raise RuntimeError(f"Attempted to pack an invalid message of type {self.edit_type.name}")
 
 
 class UserEditResponse:

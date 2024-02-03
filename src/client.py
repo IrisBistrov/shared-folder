@@ -4,6 +4,7 @@ import json
 import os
 import struct
 from pathlib import Path
+from shutil import rmtree
 
 from watchdog.observers import Observer
 
@@ -96,7 +97,7 @@ class SharedFolderClient:
     async def verify_local_files(self, directory_dict: dict[str: str]):
         logger.debug("verifying no redundant local files")
         paths = [Path(file_path) for file_path in directory_dict.keys()]
-        for root, dirs, files in os.walk(self.shared_dir_path):
+        for root, _, files in os.walk(self.shared_dir_path):
             for curr_file in files:
                 full_path = os.path.join(root, curr_file)
                 relative_path = os.path.relpath(full_path, self.shared_dir_path)
@@ -112,6 +113,34 @@ class SharedFolderClient:
             self.verify_remote_files(directory_dict)
         )
 
+    async def verify_local_directories(self, directories: list[str]):
+        for root, dirs, _ in os.walk(self.shared_dir_path):
+            for curr_dir in dirs:
+                full_path = os.path.join(root, curr_dir)
+                relative_path = os.path.relpath(full_path, self.shared_dir_path)
+                if relative_path not in directories:
+                    with self.disable_observer():
+                        rmtree(full_path)
+
+    async def verify_remote_directories(self, directories: list[str]):
+        for folder in directories:
+            actual_path = os.path.join(self.shared_dir_path, folder)
+            if not os.path.exists(actual_path):
+                with self.disable_observer():
+                    os.mkdir(actual_path)
+            elif not os.path.isdir(actual_path):
+                with self.disable_observer():
+                    os.unlink(actual_path)
+                    os.mkdir(actual_path)
+            else:
+                logger.info(f"directory {actual_path} is verified")
+
+    async def verify_directories(self, directories: list[str]):
+        await asyncio.gather(
+            self.verify_remote_directories(directories),
+            self.verify_local_directories(directories)
+        )
+
     async def handle_sync(self):
         logger.info("handle server sync message")
         data = await self.reader.readexactly(MESSAGE_LENGTH_FIELD_LENGTH)
@@ -122,9 +151,11 @@ class SharedFolderClient:
             return
 
         self.last_sync_hash = curr_hash
-        dir_dict = json.loads(data.decode())
-        logger.debug(f"received the dir dict: {dir_dict}")
-        await self.verify_directory_contents(dir_dict)
+        file_to_hash, directories = json.loads(data.decode())
+        logger.debug(f"file to hash: {file_to_hash}")
+        logger.debug(f"directories: {directories}")
+        await self.verify_directory_contents(file_to_hash)
+        await self.verify_directories(directories)
 
     async def client_flow(self):
         async with self.lock:

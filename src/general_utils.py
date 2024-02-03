@@ -46,6 +46,6 @@ def exception_handler(loop, context):
     exception = context.get('exception')
 
     if exception:
-        logger.exception(exception)
+        raise exception
     else:
         print(context["message"])

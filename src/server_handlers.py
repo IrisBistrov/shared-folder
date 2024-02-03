@@ -1,6 +1,7 @@
 import os
 import struct
 from asyncio import StreamReader, StreamWriter
+from shutil import rmtree
 
 from logger_singleton import SingletonLogger
 from protocol import UserEditMessage, UserEditTypes, UserRequestResponse
@@ -16,18 +17,28 @@ async def handle_delete_file(reader: StreamReader, folder_path: str):
     if not os.path.exists(full_path):
         logger.warning(f"file {full_path} does not exist")
 
-    os.unlink(full_path)
+    if os.path.isdir(full_path):
+        rmtree(full_path)
+    else:
+        os.unlink(full_path)
 
 
 async def handle_create_file(reader: StreamReader, folder_path: str):
     full_path = await get_local_file_path(reader, folder_path.encode())
+    is_dir_data = await reader.readexactly(1)
+    is_dir = bool(struct.unpack(">B", is_dir_data)[0])
+    logger.info(f"is dir - {is_dir}")
+
     logger.info(f"handle creation of file {full_path}")
     if os.path.exists(full_path):
         logger.warning(f"{full_path} already exists, do nothing")
         return
 
-    fd = os.open(full_path, os.O_CREAT)
-    os.close(fd)
+    if is_dir:
+        os.mkdir(full_path)
+    else:
+        fd = os.open(full_path, os.O_CREAT)
+        os.close(fd)
 
 
 async def handle_modify_file(reader: StreamReader, folder_path: str):
@@ -57,6 +68,10 @@ async def handle_user_request(reader: StreamReader, writer: StreamWriter, folder
     full_path = await get_local_file_path(reader, folder_path.encode())
     expected_md5sum = await reader.readexactly(32)
     logger.debug(f"user {writer} requested for {full_path}")
+
+    if not os.path.exists(full_path):
+        logger.warning(f"no such file {full_path}")
+        return
 
     with open(full_path, "r") as file_to_read:
         content = file_to_read.read()

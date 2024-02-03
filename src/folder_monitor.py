@@ -2,7 +2,7 @@ import os
 from asyncio import StreamReader, StreamWriter, run, Lock, run_coroutine_threadsafe
 
 from watchdog.events import FileSystemEventHandler, FileModifiedEvent, FileCreatedEvent, FileDeletedEvent, \
-    DirModifiedEvent
+    DirModifiedEvent, DirCreatedEvent
 
 from logger_singleton import SingletonLogger
 from protocol import UserEditMessage, UserEditTypes, Message
@@ -28,6 +28,7 @@ class MyHandler(FileSystemEventHandler):
         logger.info(f'File {event.src_path} has been modified')
 
         if type(event) == DirModifiedEvent:
+            logger.debug("ignore this event since it is a modified directory")
             return
 
         relative_path = os.path.relpath(event.src_path, self.shared_folder)
@@ -39,11 +40,17 @@ class MyHandler(FileSystemEventHandler):
         )
         return future.result()
 
-    def on_created(self, event: FileCreatedEvent):
+    def on_created(self, event: FileCreatedEvent | DirCreatedEvent):
         logger.info(f'File {event.src_path} has been created')
         relative_path = os.path.relpath(event.src_path, self.shared_folder)
+        logger.debug(f"is dir = {type(event) == DirCreatedEvent}")
         future = run_coroutine_threadsafe(
-            self.handle_communication(UserEditMessage(UserEditTypes.CREATE, relative_path.encode())),
+            self.handle_communication(
+                UserEditMessage(UserEditTypes.CREATE,
+                                relative_path.encode(),
+                                is_dir=(type(event) == DirCreatedEvent)
+                                )
+            ),
             self.loop
         )
         future.result()

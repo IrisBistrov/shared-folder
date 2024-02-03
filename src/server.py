@@ -19,7 +19,7 @@ class SharedFolderServer:
         self.clients = []  # List to keep track of connected clients
 
     async def broadcast(self, message: Message):
-        logger.debug(f"clients are {self.clients}")
+        logger.debug(f"send broadcast to {len(self.clients)} clients")
         for client in self.clients:
             client.write(message.pack())
             await client.drain()
