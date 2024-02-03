@@ -2,7 +2,7 @@ import struct
 from enum import Enum
 from operator import xor
 
-from logger_singleton import SingletonLogger
+from shared_folder_opu.logger_singleton import SingletonLogger
 
 logger = SingletonLogger.get_logger()
 

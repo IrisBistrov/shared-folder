@@ -2,10 +2,10 @@ import os
 from asyncio import StreamReader, StreamWriter, run, Lock, run_coroutine_threadsafe
 
 from watchdog.events import FileSystemEventHandler, FileModifiedEvent, FileCreatedEvent, FileDeletedEvent, \
-    DirModifiedEvent, DirCreatedEvent
+    DirModifiedEvent, DirCreatedEvent, DirDeletedEvent
 
-from logger_singleton import SingletonLogger
-from protocol import UserEditMessage, UserEditTypes, Message
+from shared_folder_opu.logger_singleton import SingletonLogger
+from shared_folder_opu.protocol import UserEditMessage, UserEditTypes, Message
 
 logger = SingletonLogger.get_logger()
 
@@ -55,7 +55,7 @@ class MyHandler(FileSystemEventHandler):
         )
         future.result()
 
-    def on_deleted(self, event: FileDeletedEvent):
+    def on_deleted(self, event: FileDeletedEvent | DirDeletedEvent):
         logger.info(f'File {event.src_path} has been deleted')
         relative_path = os.path.relpath(event.src_path, self.shared_folder)
         future = run_coroutine_threadsafe(

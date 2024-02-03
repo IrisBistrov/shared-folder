@@ -8,11 +8,11 @@ from shutil import rmtree
 
 from watchdog.observers import Observer
 
-from directory_utils import calculate_file_md5
-from folder_monitor import MyHandler
-from general_utils import get_directory_path, get_string, get_local_file_path, calculate_md5sum
-from logger_singleton import SingletonLogger
-from protocol import MESSAGE_TYPE_LENGTH, MESSAGE_LENGTH_FIELD_LENGTH, MessageType, UserRequestMessage
+from shared_folder_opu.directory_utils import calculate_file_md5
+from shared_folder_opu.folder_monitor import MyHandler
+from shared_folder_opu.general_utils import get_directory_path, get_string, get_local_file_path, calculate_md5sum
+from shared_folder_opu.logger_singleton import SingletonLogger
+from shared_folder_opu.protocol import MESSAGE_TYPE_LENGTH, MESSAGE_LENGTH_FIELD_LENGTH, MessageType, UserRequestMessage
 
 logger = SingletonLogger.get_logger()
 
@@ -53,13 +53,14 @@ class SharedFolderClient:
         missing_file_path = await get_local_file_path(self.reader, self.shared_dir_path.encode())
 
         content = await get_string(self.reader)
+        # TODO: can remove the md5sum that we read from server (also in protocol)
         md5sum = await self.reader.readexactly(32)
 
         if missing_file_path not in self.file_requests.keys():
             logger.warning(f"{missing_file_path} not in file requests {self.file_requests.keys()}")
             return
 
-        if calculate_md5sum(content).encode() != md5sum:
+        if calculate_md5sum(content).encode() != self.file_requests[missing_file_path]:
             logger.info("received outdated version, wait for another message")
             return
 
@@ -195,6 +196,7 @@ class SharedFolderClient:
                     self.observer.stop()
                     self.observer.join()
                 break
+
             await asyncio.sleep(0.1)
 
 

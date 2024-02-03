@@ -3,8 +3,8 @@ import hashlib
 import os
 import struct
 
-from protocol import FILE_NAME_LENGTH_FIELD_LENGTH
-from logger_singleton import SingletonLogger
+from shared_folder_opu.protocol import FILE_NAME_LENGTH_FIELD_LENGTH
+from shared_folder_opu.logger_singleton import SingletonLogger
 
 logger = SingletonLogger.get_logger()
 

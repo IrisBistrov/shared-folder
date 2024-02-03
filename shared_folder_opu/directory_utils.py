@@ -1,8 +1,8 @@
 import os
 import json
 
-from logger_singleton import SingletonLogger
-from general_utils import calculate_md5sum
+from shared_folder_opu.logger_singleton import SingletonLogger
+from shared_folder_opu.general_utils import calculate_md5sum
 
 logger = SingletonLogger.get_logger()
 

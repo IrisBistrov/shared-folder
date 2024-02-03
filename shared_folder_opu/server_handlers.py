@@ -3,10 +3,10 @@ import struct
 from asyncio import StreamReader, StreamWriter
 from shutil import rmtree
 
-from logger_singleton import SingletonLogger
-from protocol import UserEditMessage, UserEditTypes, UserRequestResponse
-from directory_utils import calculate_file_md5
-from general_utils import get_string, get_local_file_path
+from shared_folder_opu.logger_singleton import SingletonLogger
+from shared_folder_opu.protocol import UserEditMessage, UserEditTypes, UserRequestResponse
+from shared_folder_opu.directory_utils import calculate_file_md5
+from shared_folder_opu.general_utils import get_string, get_local_file_path
 
 logger = SingletonLogger.get_logger()
 
@@ -16,6 +16,7 @@ async def handle_delete_file(reader: StreamReader, folder_path: str):
     logger.info(f"handle deletion of file {full_path}")
     if not os.path.exists(full_path):
         logger.warning(f"file {full_path} does not exist")
+        return
 
     if os.path.isdir(full_path):
         rmtree(full_path)

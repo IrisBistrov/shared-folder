@@ -2,11 +2,11 @@ import asyncio
 import struct
 from asyncio import wait_for, StreamReader, StreamWriter
 
-from logger_singleton import SingletonLogger
-from directory_utils import directory_to_json
-from protocol import ServerSyncMessage, MESSAGE_TYPE_LENGTH, MessageType, Message
-from server_handlers import handle_user_edit, handle_user_request
-from general_utils import get_directory_path, exception_handler
+from shared_folder_opu.logger_singleton import SingletonLogger
+from shared_folder_opu.directory_utils import directory_to_json
+from shared_folder_opu.protocol import ServerSyncMessage, MESSAGE_TYPE_LENGTH, MessageType, Message
+from shared_folder_opu.server_handlers import handle_user_edit, handle_user_request
+from shared_folder_opu.general_utils import get_directory_path, exception_handler
 
 logger = SingletonLogger.get_logger()
 
@@ -54,9 +54,9 @@ class SharedFolderServer:
 
         finally:
             logger.info("client disconnected")
+            self.clients.remove(writer)  # Remove client from clients list
             writer.close()
             await writer.wait_closed()
-            self.clients.remove(writer)  # Remove client from clients list
 
     async def handle_client(self, reader: StreamReader, writer: StreamWriter):
         task = asyncio.create_task(self._handle_client(reader, writer))
@@ -78,6 +78,7 @@ async def main():
     shared_dir_path = get_directory_path()
     logger.info(f"will share the path {shared_dir_path}")
 
+    # TODO: read from config file
     shared_folder_server = SharedFolderServer("localhost", 8080, shared_dir_path)
     await shared_folder_server.run_server()
 
