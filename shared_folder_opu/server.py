@@ -6,7 +6,6 @@ from shared_folder_opu.logger_singleton import SingletonLogger
 from shared_folder_opu.directory_utils import directory_to_json
 from shared_folder_opu.protocol import ServerSyncMessage, MESSAGE_TYPE_LENGTH, MessageType, Message
 from shared_folder_opu.server_handlers import handle_user_edit, handle_user_request
-from shared_folder_opu.general_utils import get_directory_path, exception_handler
 
 logger = SingletonLogger.get_logger()
 
@@ -70,17 +69,3 @@ class SharedFolderServer:
         async with server:
             await server.serve_forever()
 
-
-async def main():
-    loop = asyncio.get_event_loop()
-    loop.set_exception_handler(exception_handler)
-
-    shared_dir_path = get_directory_path()
-    logger.info(f"will share the path {shared_dir_path}")
-
-    # TODO: read from config file
-    shared_folder_server = SharedFolderServer("localhost", 8080, shared_dir_path)
-    await shared_folder_server.run_server()
-
-
-asyncio.run(main())

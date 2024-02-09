@@ -198,10 +198,3 @@ class SharedFolderClient:
                 break
 
             await asyncio.sleep(0.1)
-
-
-# global shared_dir_path
-shared_dir_path = get_directory_path()
-logger.info(f"The path that we will sync with the shared folder is {shared_dir_path}")
-
-asyncio.run(SharedFolderClient(shared_dir_path, "localhost", 8080).client(), debug=True)

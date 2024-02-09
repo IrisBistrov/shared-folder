@@ -10,7 +10,7 @@ SERVER_IP = "localhost"
 @pytest.fixture(autouse=True)
 def server(tmpdir_factory):
     new_dir = tmpdir_factory.mktemp("server-directory")
-    server_process = subprocess.Popen(["python", "shared_folder_opu/server.py", new_dir.dirname],
+    server_process = subprocess.Popen(["python", "server_main.py", new_dir.dirname],
                                       shell=True,
                                       stdin=subprocess.PIPE,
                                       stdout=subprocess.PIPE,
@@ -27,7 +27,7 @@ def get_client(tmpdir_factory):
 
     def _get_client():
         new_dir = tmpdir_factory.mktemp(randomname.get_name())
-        client_process = subprocess.Popen(["python", "shared_folder_opu/client.py", new_dir.dirname],
+        client_process = subprocess.Popen(["python", "client_main.py", new_dir.dirname],
                                           shell=True,
                                           stdin=subprocess.PIPE,
                                           stdout=subprocess.PIPE,
