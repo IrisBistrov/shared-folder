@@ -8,7 +8,7 @@ SERVER_IP = "localhost"
 
 
 @pytest.fixture(autouse=True)
-def server(tmpdir_factory):
+def server_folder(tmpdir_factory):
     new_dir = tmpdir_factory.mktemp("server-directory")
     server_process = subprocess.Popen(["python", "server_main.py", new_dir.dirname],
                                       shell=True,
