@@ -152,4 +152,3 @@ async def test_handle_modify(mock_unlink, mock_open, mock_md5, mock_dumps):
 
     mock_unlink.assert_called_once_with(os.path.join(test_file_path, file_name).encode())
     mock_open.assert_called_with(os.path.join(test_file_path, file_name).encode(), "w")
-

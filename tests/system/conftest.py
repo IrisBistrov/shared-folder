@@ -17,7 +17,7 @@ def server(tmpdir_factory):
                                       stderr=subprocess.PIPE)
     yield new_dir.dirname
 
-    # TODO: make sure running
+    assert server_process.poll() is None
     server_process.kill()
 
 
@@ -40,6 +40,3 @@ def get_client(tmpdir_factory):
 
     for client in clients:
         client.kill()
-
-
-
