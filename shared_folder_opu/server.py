@@ -18,13 +18,18 @@ class SharedFolderServer:
         self.clients = []  # List to keep track of connected clients
 
     async def broadcast(self, message: Message):
+        """
+        send the message to all the connected clients
+        """
         logger.debug(f"send broadcast to {len(self.clients)} clients")
         for client in self.clients:
             client.write(message.pack())
             await client.drain()
 
     async def handle_message(self, message: MessageType, reader: StreamReader, writer: StreamWriter):
-
+        """
+        call the right function to handle with the message we received
+        """
         match message:
             case MessageType.USER_EDIT:
                 await handle_user_edit(reader, self.shared_dir_path)
@@ -35,6 +40,11 @@ class SharedFolderServer:
                 logger.error(f"received invalid message type {message.name}")
 
     async def _handle_client(self, reader: StreamReader, writer: StreamWriter):
+        """
+        a new client is connected. wait for messages from the client and handle them. also,
+        add the writer to a list, so we can include it in the broadcast. when the client disconnects
+        we remove the writer from the list.
+        """
         self.clients.append(writer)  # Add client to clients list
         writer.write(ServerSyncMessage(directory_to_json(self.shared_dir_path).encode()).pack())
         await writer.drain()
@@ -58,12 +68,18 @@ class SharedFolderServer:
             await writer.wait_closed()
 
     async def handle_client(self, reader: StreamReader, writer: StreamWriter):
+        """
+        run the client flow, if an exception occurred we will log it.
+        """
         task = asyncio.create_task(self._handle_client(reader, writer))
         await task
         if task.exception():
             logger.error(task.exception())
 
     async def run_server(self):
+        """
+        main method of the server, should call it to run the server.
+        """
         server = await asyncio.start_server(
             self.handle_client, self.host, self.port)
         async with server:

@@ -10,7 +10,7 @@ from watchdog.observers import Observer
 
 from shared_folder_opu.directory_utils import calculate_file_md5
 from shared_folder_opu.folder_monitor import MyHandler
-from shared_folder_opu.general_utils import get_directory_path, get_string, get_local_file_path, calculate_md5sum
+from shared_folder_opu.general_utils import get_string, get_local_file_path, calculate_md5sum
 from shared_folder_opu.logger_singleton import SingletonLogger
 from shared_folder_opu.protocol import MESSAGE_TYPE_LENGTH, MESSAGE_LENGTH_FIELD_LENGTH, MessageType, UserRequestMessage
 
@@ -33,6 +33,10 @@ class SharedFolderClient:
 
     @contextlib.contextmanager
     def disable_observer(self):
+        """
+        we use this method when we are going to edit the directory, so we don't
+        want the observer to react to changes
+        """
         if self.observer:
             self.observer.stop()
             self.observer.join()
@@ -44,12 +48,18 @@ class SharedFolderClient:
             self.start_new_observer(my_loop)
 
     async def handle_missing_file(self, missing_file_path: str, missing_hash: str):
+        """
+        this method will write a request to the server to send the missing file
+        """
         logger.info(f"add {missing_file_path.encode()}: {missing_hash.encode()} to file requests")
         self.file_requests[os.path.join(self.shared_dir_path, missing_file_path).encode()] = missing_hash.encode()
         self.writer.write(UserRequestMessage(missing_file_path, missing_hash).pack())
         await self.writer.drain()
 
     async def handle_server_file(self):
+        """
+        handle the file the server sent on out request
+        """
         missing_file_path = await get_local_file_path(self.reader, self.shared_dir_path.encode())
         content = await get_string(self.reader)
 
@@ -69,6 +79,9 @@ class SharedFolderClient:
                 f.write(content)
 
     async def handle_modified_file(self, actual_file_path: str, expected_md5: str):
+        """
+        delete the current file and request the new file from server
+        """
         logger.info(f"MD5 mismatch for {actual_file_path}: Expected {expected_md5}")
         with self.disable_observer():
             os.unlink(os.path.join(self.shared_dir_path, actual_file_path))
@@ -76,6 +89,10 @@ class SharedFolderClient:
         await self.handle_missing_file(actual_file_path, expected_md5)
 
     async def verify_remote_files(self, directory_dict: dict[str: str]):
+        """
+        make sure that all the remote files are equal to the local files. if a file is missing or changed,
+        handle it.
+        """
         logger.debug("verifying that all remote files are equal to local")
         for file_path, expected_md5 in directory_dict.items():
             actual_file_path = os.path.join(self.shared_dir_path, file_path)
@@ -93,6 +110,9 @@ class SharedFolderClient:
             logger.info(f"file verified: {actual_file_path}")
 
     async def verify_local_files(self, directory_dict: dict[str: str]):
+        """
+        make sure that all the local files exist on the remote folder
+        """
         logger.debug("verifying no redundant local files")
         paths = [Path(file_path) for file_path in directory_dict.keys()]
         for root, _, files in os.walk(self.shared_dir_path):
@@ -112,6 +132,9 @@ class SharedFolderClient:
         )
 
     async def verify_local_directories(self, directories: list[str]):
+        """
+        make sure all local directories appear remotely
+        """
         for root, dirs, _ in os.walk(self.shared_dir_path):
             for curr_dir in dirs:
                 full_path = os.path.join(root, curr_dir)
@@ -121,6 +144,9 @@ class SharedFolderClient:
                         rmtree(full_path)
 
     async def verify_remote_directories(self, directories: list[str]):
+        """
+        make sure all remote directories appear locally
+        """
         for folder in directories:
             actual_path = os.path.join(self.shared_dir_path, folder)
             if not os.path.exists(actual_path):
@@ -156,6 +182,9 @@ class SharedFolderClient:
         await self.verify_directories(directories)
 
     async def client_flow(self):
+        """
+        wait for a message from the server and react accordingly
+        """
         async with self.lock:
             try:
                 data = await asyncio.wait_for(self.reader.readexactly(MESSAGE_TYPE_LENGTH), timeout=0.3)
@@ -172,6 +201,9 @@ class SharedFolderClient:
                     logger.error(f"unrecognizable message code {message_type}")
 
     def start_new_observer(self, my_loop):
+        """
+        start an observer that will call a handling function on changes made to the directory
+        """
         logger.debug("start new observer")
         self.observer = Observer()
         self.event_handler = MyHandler(self.reader, self.writer, self.shared_dir_path, self.lock, my_loop)
@@ -179,6 +211,10 @@ class SharedFolderClient:
         self.observer.start()
 
     async def client(self):
+        """
+        connect to the server. monitor the synced folder, send edit requests to the server accordingly.
+        receive sync messages from the server and edit the folder to match it.
+        """
         my_loop = asyncio.get_running_loop()
         self.reader, self.writer = await asyncio.open_connection(self.host, self.port)
         await self.client_flow()
@@ -194,4 +230,5 @@ class SharedFolderClient:
                     self.observer.join()
                 break
 
+            # while we sleep the observer is running
             await asyncio.sleep(0.1)

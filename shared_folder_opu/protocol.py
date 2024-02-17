@@ -16,7 +16,6 @@ class MessageType(Enum):
     USER_REQUEST = 1
     SERVER_SYNC = 2
     SERVER_FILE = 3
-    USER_EDIT_RESPONSE = 4
 
 
 class UserEditTypes(Enum):
@@ -54,6 +53,7 @@ class UserEditMessage(Message):
                                    self.CODE, self.edit_type.value,
                                    len(self.file_name),
                                    self.file_name)
+
             case UserEditTypes.MODIFY:
                 return struct.pack(f">BBH{len(self.file_name)}sH{len(self.content)}s",
                                    self.CODE,
@@ -62,24 +62,16 @@ class UserEditMessage(Message):
                                    self.file_name,
                                    len(self.content),
                                    self.content)
+
             case UserEditTypes.CREATE:
                 return struct.pack(f">BBH{len(self.file_name)}sB",
                                    self.CODE, self.edit_type.value,
                                    len(self.file_name),
                                    self.file_name,
                                    self.is_dir)
+
             case _:
                 raise RuntimeError(f"Attempted to pack an invalid message of type {self.edit_type.name}")
-
-
-class UserEditResponse:
-    CODE = MessageType.USER_EDIT_RESPONSE.value
-
-    def __init__(self, status: StatusTypes):
-        self.status = status
-
-    def pack(self):
-        return struct.pack(">BB", self.CODE, self.status.value)
 
 
 class UserRequestMessage(Message):
