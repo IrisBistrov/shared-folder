@@ -8,7 +8,7 @@ to run the unit tests you should install the package, run the following
 command from the main folder of the project. 
 
 ```commandline
-sudo -H pip install -e .
+sudo -H pip3 install -e .
 ```
 
 ## Tests
@@ -16,7 +16,7 @@ sudo -H pip install -e .
 after you installed the package, run from the same folder:
 
 ```commandline
-python -m pytest
+python3 -m pytest
 ```
 
 ## Usage
@@ -24,7 +24,7 @@ python -m pytest
 to run the server: 
 
 ```commandline
-python server_main.py /tmp/server/
+python3 server_main.py /tmp/server/
 ```
 
 in this case the folder that will be shared is `/tmp/server`.
@@ -32,7 +32,7 @@ in this case the folder that will be shared is `/tmp/server`.
 to run the client:
 
 ```commandline
-python client_main.py /tmp/client/
+python3 client_main.py /tmp/client/
 ```
 
 the folder that will be synced with the server is `/tmp/client`.

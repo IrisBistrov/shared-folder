@@ -152,3 +152,27 @@ async def test_handle_modify(mock_unlink, mock_open, mock_md5, mock_dumps):
 
     mock_unlink.assert_called_once_with(os.path.join(test_file_path, file_name).encode())
     mock_open.assert_called_with(os.path.join(test_file_path, file_name).encode(), "w")
+
+
+@pytest.mark.asyncio
+@patch('hashlib.md5')
+async def test_handle_file_request_wrong_md5sum(mock_md5):
+    test_file_path = '/tmp/server'
+    file_name = "my_file"
+    server = SharedFolderServer("localhost", 1234, test_file_path)
+    mock_md5.hexdigest.return_value = "\x00" * 32
+
+    writer = AsyncMock()
+    reader = AsyncMock()
+    reader.readexactly = asyncio.coroutine(
+        AsyncMock(side_effect=[
+            struct.pack(f">H", len(file_name)),
+            struct.pack(f">{len(file_name)}s", file_name.encode()),
+            struct.pack(f">32s", b"\x11" * 32)
+        ])
+    )
+
+    await server.handle_message(MessageType.USER_REQUEST, reader, writer)
+
+    writer.write.assert_not_called()
+
