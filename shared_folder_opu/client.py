@@ -51,10 +51,7 @@ class SharedFolderClient:
 
     async def handle_server_file(self):
         missing_file_path = await get_local_file_path(self.reader, self.shared_dir_path.encode())
-
         content = await get_string(self.reader)
-        # TODO: can remove the md5sum that we read from server (also in protocol)
-        md5sum = await self.reader.readexactly(32)
 
         if missing_file_path not in self.file_requests.keys():
             logger.warning(f"{missing_file_path} not in file requests {self.file_requests.keys()}")

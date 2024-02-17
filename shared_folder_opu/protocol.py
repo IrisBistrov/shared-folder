@@ -100,19 +100,17 @@ class UserRequestMessage(Message):
 class UserRequestResponse(Message):
     CODE = MessageType.SERVER_FILE.value
 
-    def __init__(self, file_path: str, md5sum: str, content: str):
+    def __init__(self, file_path: str, content: str):
         self.file_path = file_path
-        self.md5sum = md5sum
         self.content = content
 
     def pack(self):
-        return struct.pack(f">BH{len(self.file_path)}sH{len(self.content)}s{len(self.md5sum)}s",
+        return struct.pack(f">BH{len(self.file_path)}sH{len(self.content)}s",
                            self.CODE,
                            len(self.file_path),
                            self.file_path.encode(),
                            len(self.content),
-                           self.content.encode(),
-                           self.md5sum.encode())
+                           self.content.encode())
 
 
 class ServerSyncMessage(Message):

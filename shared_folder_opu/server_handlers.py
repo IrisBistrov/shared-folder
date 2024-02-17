@@ -84,5 +84,5 @@ async def handle_user_request(reader: StreamReader, writer: StreamWriter, folder
         logger.warning(f"expected md5sum is {expected_md5sum} but the updated value is {md5sum.encode()}")
         return
 
-    writer.write(UserRequestResponse(os.path.relpath(full_path.decode(), folder_path), md5sum, content).pack())
+    writer.write(UserRequestResponse(os.path.relpath(full_path.decode(), folder_path), content).pack())
     await writer.drain()
