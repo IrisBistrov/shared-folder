@@ -20,14 +20,23 @@ class MyHandler(FileSystemEventHandler):
         self.reader = reader
 
     async def handle_communication(self, request: Message):
+        """
+        write a message to the server. we use a reading lock because if a 2 or more files were created on
+        the same time we want the messages to be written separately
+        """
         async with self.reading_lock:
             self.writer.write(request.pack())
             await self.writer.drain()
 
     def on_modified(self, event: FileModifiedEvent | DirModifiedEvent):
+        """
+        called when a file or directory are modified
+        """
         logger.info(f'File {event.src_path} has been modified')
 
         if type(event) == DirModifiedEvent:
+            # we react only on created or deleted directories. the server should not do anything
+            # if a folder is modified
             logger.debug("ignore this event since it is a modified directory")
             return
 
@@ -41,6 +50,9 @@ class MyHandler(FileSystemEventHandler):
         return future.result()
 
     def on_created(self, event: FileCreatedEvent | DirCreatedEvent):
+        """
+        called when a file or a directory is created
+        """
         logger.info(f'File {event.src_path} has been created')
         relative_path = os.path.relpath(event.src_path, self.shared_folder)
         logger.debug(f"is dir = {type(event) == DirCreatedEvent}")
@@ -56,6 +68,9 @@ class MyHandler(FileSystemEventHandler):
         future.result()
 
     def on_deleted(self, event: FileDeletedEvent | DirDeletedEvent):
+        """
+        called when a file or directory are deleted
+        """
         logger.info(f'File {event.src_path} has been deleted')
         relative_path = os.path.relpath(event.src_path, self.shared_folder)
         future = run_coroutine_threadsafe(

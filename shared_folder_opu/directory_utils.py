@@ -8,12 +8,18 @@ logger = SingletonLogger.get_logger()
 
 
 def calculate_file_md5(file_path: str):
+    """
+    calculate md5sum of the file path
+    """
     with open(file_path, 'rb') as file:
         data = file.read()
     return calculate_md5sum(data)
 
 
 def directory_to_json(dir_path: str):
+    """
+    create a json object of the shared folder. one dict is created for the dirs and one for the files.
+    """
     file_to_hash = {}
     directories = []
     for root, dirs, files in os.walk(dir_path):
