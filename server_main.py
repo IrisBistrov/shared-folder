@@ -15,7 +15,6 @@ async def main():
     shared_dir_path = get_directory_path()
     logger.info(f"will share the path {shared_dir_path}")
 
-    # TODO: read from config file
     shared_folder_server = SharedFolderServer(SERVER_HOST, SERVER_PORT, shared_dir_path)
     await shared_folder_server.run_server()
 
