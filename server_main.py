@@ -3,6 +3,7 @@ import asyncio
 from shared_folder_opu.general_utils import exception_handler, get_directory_path
 from shared_folder_opu.logger_singleton import SingletonLogger
 from shared_folder_opu.server import SharedFolderServer
+from configuration import SERVER_PORT, SERVER_HOST
 
 logger = SingletonLogger.get_logger()
 
@@ -15,7 +16,7 @@ async def main():
     logger.info(f"will share the path {shared_dir_path}")
 
     # TODO: read from config file
-    shared_folder_server = SharedFolderServer("localhost", 8080, shared_dir_path)
+    shared_folder_server = SharedFolderServer(SERVER_HOST, SERVER_PORT, shared_dir_path)
     await shared_folder_server.run_server()
 
 

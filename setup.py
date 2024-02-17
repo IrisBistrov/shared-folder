@@ -3,16 +3,17 @@ from setuptools import setup, find_packages
 setup(
     name='shared_folder_opu',
     version='0.1.0',
-    author='Your Name',
-    author_email='your.email@example.com',
-    description='A short description of your package',
+    author='Iris Bistrov and Hila Ramati',
+    description='a package that implements shared folder client and server',
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',
-    # url='https://github.com/yourusername/shared_folder_opu',
     packages=find_packages(),
     install_requires=[
-        # List your package dependencies here
-        # For example, 'requests>=2.25.1'
+        "pytest==7.4.4",
+        "randomname~=0.2.1",
+        "setuptools~=69.0.3",
+        "watchdog~=3.0.0",
+        "rich~=13.7.0"
     ],
     classifiers=[
         'Programming Language :: Python :: 3',
@@ -20,5 +21,5 @@ setup(
         'License :: OSI Approved :: MIT License',
         'Operating System :: OS Independent',
     ],
-    python_requires='>=3.6',
+    python_requires='>=3.10',
 )
