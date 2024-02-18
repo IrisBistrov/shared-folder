@@ -52,17 +52,19 @@ async def handle_modify_file(reader: StreamReader, folder_path: str):
         file_to_write.write(content.decode())
 
 
-EDIT_TYPE_TO_HANDLER = {
-    UserEditTypes.DELETE: handle_delete_file,
-    UserEditTypes.CREATE: handle_create_file,
-    UserEditTypes.MODIFY: handle_modify_file,
-}
-
-
 async def handle_user_edit(reader: StreamReader, folder_path: str):
     data = await reader.readexactly(UserEditMessage.EDIT_TYPE_LENGTH)
     edit_type = UserEditTypes(struct.unpack(">B", data)[0])
-    await EDIT_TYPE_TO_HANDLER[edit_type](reader, folder_path)
+
+    match UserEditTypes(edit_type):
+        case UserEditTypes.MODIFY:
+            await handle_modify_file(reader, folder_path)
+        case UserEditTypes.CREATE:
+            await handle_create_file(reader, folder_path)
+        case UserEditTypes.DELETE:
+            await handle_delete_file(reader, folder_path)
+        case _:
+            logger.error("received unsupported type")
 
 
 async def handle_user_request(reader: StreamReader, writer: StreamWriter, folder_path: str):

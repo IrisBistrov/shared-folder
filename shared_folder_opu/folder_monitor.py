@@ -14,7 +14,7 @@ class MyHandler(FileSystemEventHandler):
 
     def __init__(self, reader: StreamReader, writer: StreamWriter, shared_folder: str, reading_lock: Lock, loop):
         self.loop = loop
-        self.reading_lock = reading_lock
+        self.communication_lock = reading_lock
         self.shared_folder = shared_folder
         self.writer = writer
         self.reader = reader
@@ -24,7 +24,7 @@ class MyHandler(FileSystemEventHandler):
         write a message to the server. we use a reading lock because if a 2 or more files were created on
         the same time we want the messages to be written separately
         """
-        async with self.reading_lock:
+        async with self.communication_lock:
             self.writer.write(request.pack())
             await self.writer.drain()
 

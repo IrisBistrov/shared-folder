@@ -175,4 +175,3 @@ async def test_handle_file_request_wrong_md5sum(mock_md5):
     await server.handle_message(MessageType.USER_REQUEST, reader, writer)
 
     writer.write.assert_not_called()
-
